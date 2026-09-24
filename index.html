@@ -111,6 +111,23 @@
     
     .spinner { animation: spin 1s linear infinite; width: 22px; height: 22px; stroke: currentColor; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Custom Confirmation Modal (Hardware Back Supported) */
+    .confirm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(4px); }
+    .confirm-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .confirm-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); background: var(--surface-color); width: 90%; max-width: 320px; border-radius: 20px; padding: 24px; z-index: 3001; opacity: 0; pointer-events: none; transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1); box-shadow: 0 10px 40px rgba(0,0,0,0.2); text-align: center; }
+    .confirm-modal.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+    
+    .confirm-title { font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; }
+    .confirm-desc { font-size: 14px; color: var(--text-sub); margin-bottom: 24px; line-height: 1.5; }
+    .confirm-actions { display: flex; gap: 12px; }
+    
+    .btn-dialog { flex: 1; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; transition: transform 0.1s; }
+    .btn-dialog:active { transform: scale(0.96); }
+    .btn-dialog.cancel { background: var(--skeleton-base); color: var(--text-main); }
+    .btn-dialog.confirm { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(40, 116, 240, 0.25); }
+    .btn-dialog.confirm.danger { background: var(--danger); box-shadow: 0 4px 12px rgba(211, 47, 47, 0.25); }
   </style>
 </head>
 <body>
@@ -173,6 +190,17 @@
     Install Delivery App
   </div>
 
+  <!-- Logout Confirmation Modal -->
+  <div class="confirm-overlay" id="logout-overlay"></div>
+  <div class="confirm-modal" id="logout-modal">
+    <div class="confirm-title">Sign Out</div>
+    <div class="confirm-desc">Are you sure you want to sign out of the Delivery Portal?</div>
+    <div class="confirm-actions">
+      <button class="btn-dialog cancel" id="logout-cancel">Cancel</button>
+      <button class="btn-dialog confirm danger" id="logout-confirm">Sign Out</button>
+    </div>
+  </div>
+
   <script type="module">
     import { auth, db } from './config.js';
     import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -189,6 +217,11 @@
     const viewDenied = document.getElementById('view-denied');
     const feedContainer = document.getElementById('feed-container');
     const userDp = document.getElementById('user-dp');
+
+    // Logout Modal Elements
+    const logoutOverlay = document.getElementById('logout-overlay');
+    const logoutModal = document.getElementById('logout-modal');
+    let isLogoutModalOpen = false;
 
     let currentUser = null;
     let liveUnsubscribe = null;
@@ -236,7 +269,7 @@
       }
     });
 
-    // 3. Login & Logout Actions
+    // 3. Login Actions
     document.getElementById('btn-google-login').addEventListener('click', async () => {
       if (navigator.vibrate) navigator.vibrate(15);
       const provider = new GoogleAuthProvider();
@@ -245,9 +278,38 @@
     });
 
     document.getElementById('btn-switch-account').addEventListener('click', () => signOut(auth));
+    
+    // Custom Logout Modal Logic
     document.getElementById('btn-logout').addEventListener('click', () => {
       if (navigator.vibrate) navigator.vibrate(15);
-      if (confirm("Sign out of Delivery Portal?")) signOut(auth);
+      logoutOverlay.classList.add('active');
+      logoutModal.classList.add('active');
+      isLogoutModalOpen = true;
+      history.pushState({ modal: 'logout' }, '');
+    });
+
+    function closeLogoutModal() {
+      logoutOverlay.classList.remove('active');
+      logoutModal.classList.remove('active');
+      isLogoutModalOpen = false;
+    }
+
+    window.addEventListener('popstate', (e) => {
+      if (isLogoutModalOpen) closeLogoutModal();
+    });
+
+    document.getElementById('logout-cancel').addEventListener('click', () => {
+      if (isLogoutModalOpen) history.back();
+    });
+
+    logoutOverlay.addEventListener('click', () => {
+      if (isLogoutModalOpen) history.back();
+    });
+
+    document.getElementById('logout-confirm').addEventListener('click', () => {
+      if (navigator.vibrate) navigator.vibrate(15);
+      if (isLogoutModalOpen) history.back();
+      signOut(auth);
     });
 
     // 4. Real-Time Order Pipe
