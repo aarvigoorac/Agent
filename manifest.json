@@ -4,7 +4,7 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f1f3f6",
-  "theme_color": "#2874f0",
+  "theme_color": "#ffffff",
   "description": "Delivery Partner Portal for Aarvi Stores",
   "icons": [
     {
