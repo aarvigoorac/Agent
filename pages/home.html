@@ -123,11 +123,57 @@
     <!-- Active Tasks Section -->
     <div class="section-title" id="active-title" style="display:none;">Active Deliveries <span class="section-badge" id="active-count">0</span></div>
     <div class="orders-grid" id="active-grid">
-      <!-- Instant Boot Skeletons -->
+      <!-- High-Fidelity Boot Skeletons -->
       <div class="order-card" style="pointer-events:none;">
-        <div class="skeleton" style="height:20px; width:40%; margin-bottom:16px;"></div>
-        <div class="skeleton" style="height:120px; width:100%; border-radius:12px; margin-bottom:16px;"></div>
-        <div class="skeleton" style="height:80px; width:100%; border-radius:12px; margin-bottom:16px;"></div>
+        <div class="oc-header">
+           <div style="display:flex; flex-direction:column; gap:4px; width:50%;">
+              <div class="skeleton" style="height:16px; width:100%;"></div>
+              <div class="skeleton" style="height:12px; width:60%;"></div>
+           </div>
+           <div class="skeleton" style="height:26px; width:80px; border-radius:50px;"></div>
+        </div>
+        <div class="detail-block">
+           <div class="skeleton" style="height:18px; width:40%; margin-bottom:8px;"></div>
+           <div class="skeleton" style="height:14px; width:90%; margin-bottom:4px;"></div>
+           <div class="skeleton" style="height:14px; width:60%; margin-bottom:12px;"></div>
+           <div class="skeleton" style="height:44px; width:100%; border-radius:10px;"></div>
+        </div>
+        <div class="detail-block">
+           <div class="skeleton" style="height:14px; width:30%; margin-bottom:12px;"></div>
+           <div style="display:flex; gap:12px;">
+              <div class="skeleton" style="height:54px; width:54px; border-radius:8px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+                 <div class="skeleton" style="height:14px; width:80%;"></div>
+                 <div class="skeleton" style="height:12px; width:40%;"></div>
+              </div>
+           </div>
+        </div>
+        <div class="skeleton" style="height:54px; width:100%; border-radius:12px;"></div>
+      </div>
+      <div class="order-card" style="pointer-events:none;">
+        <div class="oc-header">
+           <div style="display:flex; flex-direction:column; gap:4px; width:50%;">
+              <div class="skeleton" style="height:16px; width:100%;"></div>
+              <div class="skeleton" style="height:12px; width:60%;"></div>
+           </div>
+           <div class="skeleton" style="height:26px; width:80px; border-radius:50px;"></div>
+        </div>
+        <div class="detail-block">
+           <div class="skeleton" style="height:18px; width:40%; margin-bottom:8px;"></div>
+           <div class="skeleton" style="height:14px; width:90%; margin-bottom:4px;"></div>
+           <div class="skeleton" style="height:14px; width:60%; margin-bottom:12px;"></div>
+           <div class="skeleton" style="height:44px; width:100%; border-radius:10px;"></div>
+        </div>
+        <div class="detail-block">
+           <div class="skeleton" style="height:14px; width:30%; margin-bottom:12px;"></div>
+           <div style="display:flex; gap:12px;">
+              <div class="skeleton" style="height:54px; width:54px; border-radius:8px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+                 <div class="skeleton" style="height:14px; width:80%;"></div>
+                 <div class="skeleton" style="height:12px; width:40%;"></div>
+              </div>
+           </div>
+        </div>
         <div class="skeleton" style="height:54px; width:100%; border-radius:12px;"></div>
       </div>
     </div>
@@ -250,6 +296,9 @@
       } else {
         completedTitle.style.display = 'none';
       }
+
+      // Initialize the 10-second timers for "Out for Delivery" buttons
+      initTimers();
     }
 
     // 3. Complete Detail Flat Card Builder
@@ -290,9 +339,23 @@
                         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg> Mark Out for Delivery
                       </button>`;
       } else if (order.status === 'out for delivery') {
-        actionHtml = `<button class="btn-action btn-deliver" onclick="window.updateOrderStatus(this, '${order.id}', 'delivered')">
-                        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> Mark Delivered
-                      </button>`;
+        
+        // 10-Second Wait Logic
+        const outTime = new Date(order.outForDeliveryAt || order.updatedAt).getTime();
+        const diff = Date.now() - outTime;
+        
+        if (diff < 10000) {
+          const remaining = Math.ceil((10000 - diff) / 1000);
+          actionHtml = `<button class="btn-action btn-deliver" id="deliver-btn-${order.id}" disabled style="opacity: 0.8;" data-out="${outTime}">
+                          <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4"></path></svg> 
+                          <span id="deliver-text-${order.id}">Wait ${remaining}s...</span>
+                        </button>`;
+        } else {
+          actionHtml = `<button class="btn-action btn-deliver" onclick="window.updateOrderStatus(this, '${order.id}', 'delivered')">
+                          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> Mark Delivered
+                        </button>`;
+        }
+
       } else if (order.status === 'delivered') {
         actionHtml = `<div class="status-success">
                         <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> Delivered Successfully
@@ -370,6 +433,30 @@
         btn.disabled = false;
       }
     };
+
+    // 5. Timer Engine for 10-Second Wait
+    function initTimers() {
+      document.querySelectorAll('[id^="deliver-btn-"]').forEach(btn => {
+        const orderId = btn.id.replace('deliver-btn-', '');
+        const outTime = parseInt(btn.getAttribute('data-out'));
+        
+        const interval = setInterval(() => {
+          const diff = Date.now() - outTime;
+          
+          if (diff >= 10000) {
+            clearInterval(interval);
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.innerHTML = `<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> Mark Delivered`;
+            btn.onclick = () => window.updateOrderStatus(btn, orderId, 'delivered');
+          } else {
+            const rem = Math.ceil((10000 - diff) / 1000);
+            const textEl = document.getElementById(`deliver-text-${orderId}`);
+            if(textEl) textEl.innerText = `Wait ${rem}s...`;
+          }
+        }, 1000);
+      });
+    }
 
   </script>
 </body>
