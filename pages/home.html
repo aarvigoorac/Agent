@@ -79,6 +79,15 @@
     .btn-call:active { transform: scale(0.95); }
     .btn-call svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2.5; }
 
+    /* Collapsible Items Dropdown */
+    .accordion-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+    .chevron { width: 20px; height: 20px; stroke: var(--text-sub); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .chevron.open { transform: rotate(180deg); }
+    
+    .accordion-body { display: none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
+    .accordion-body.open { display: block; animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
     /* Items List */
     .item-row { display: flex; gap: 12px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border); }
     .item-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
@@ -138,15 +147,9 @@
            <div class="skeleton" style="height:14px; width:60%; margin-bottom:12px;"></div>
            <div class="skeleton" style="height:44px; width:100%; border-radius:10px;"></div>
         </div>
-        <div class="detail-block">
-           <div class="skeleton" style="height:14px; width:30%; margin-bottom:12px;"></div>
-           <div style="display:flex; gap:12px;">
-              <div class="skeleton" style="height:54px; width:54px; border-radius:8px;"></div>
-              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
-                 <div class="skeleton" style="height:14px; width:80%;"></div>
-                 <div class="skeleton" style="height:12px; width:40%;"></div>
-              </div>
-           </div>
+        <div class="detail-block" style="display: flex; justify-content: space-between; align-items: center;">
+           <div class="skeleton" style="height:14px; width:40%;"></div>
+           <div class="skeleton" style="height:20px; width:20px; border-radius:4px;"></div>
         </div>
         <div class="skeleton" style="height:54px; width:100%; border-radius:12px;"></div>
       </div>
@@ -164,15 +167,9 @@
            <div class="skeleton" style="height:14px; width:60%; margin-bottom:12px;"></div>
            <div class="skeleton" style="height:44px; width:100%; border-radius:10px;"></div>
         </div>
-        <div class="detail-block">
-           <div class="skeleton" style="height:14px; width:30%; margin-bottom:12px;"></div>
-           <div style="display:flex; gap:12px;">
-              <div class="skeleton" style="height:54px; width:54px; border-radius:8px;"></div>
-              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
-                 <div class="skeleton" style="height:14px; width:80%;"></div>
-                 <div class="skeleton" style="height:12px; width:40%;"></div>
-              </div>
-           </div>
+        <div class="detail-block" style="display: flex; justify-content: space-between; align-items: center;">
+           <div class="skeleton" style="height:14px; width:40%;"></div>
+           <div class="skeleton" style="height:20px; width:20px; border-radius:4px;"></div>
         </div>
         <div class="skeleton" style="height:54px; width:100%; border-radius:12px;"></div>
       </div>
@@ -224,7 +221,6 @@
         currentUser = user;
         startLiveFeed();
       } else {
-        // Handled by parent PWA shell redirecting to login
         if (liveUnsubscribe) liveUnsubscribe();
       }
     });
@@ -257,7 +253,6 @@
           }
         });
 
-        // Sort: newest first
         activeOrders.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
         completedOrders.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
@@ -297,11 +292,21 @@
         completedTitle.style.display = 'none';
       }
 
-      // Initialize the 10-second timers for "Out for Delivery" buttons
       initTimers();
     }
 
-    // 3. Complete Detail Flat Card Builder
+    // 3. Dropdown Toggler
+    window.toggleItems = function(orderId) {
+      if (navigator.vibrate) navigator.vibrate(10);
+      const body = document.getElementById(`items-body-${orderId}`);
+      const chevron = document.getElementById(`chevron-${orderId}`);
+      if (body && chevron) {
+        body.classList.toggle('open');
+        chevron.classList.toggle('open');
+      }
+    };
+
+    // 4. Complete Detail Flat Card Builder
     function buildCard(order) {
       const theme = getStatusTheme(order.status);
       const addr = order.deliveryAddress || {};
@@ -311,8 +316,12 @@
       // Items Builder
       let itemsHtml = '';
       let calcSubTotal = 0;
+      let totalItemsCount = 0;
+
       order.items.forEach(item => {
-        const itemTotal = item.price * (item.qty || 1);
+        const qty = item.qty || 1;
+        totalItemsCount += qty;
+        const itemTotal = item.price * qty;
         calcSubTotal += itemTotal;
         itemsHtml += `
           <div class="item-row">
@@ -320,7 +329,7 @@
             <div class="item-info">
               <div class="item-name">${item.name}</div>
               <div class="item-meta">
-                <span>Qty: ${item.qty || 1}</span>
+                <span>Qty: ${qty}</span>
                 <span class="item-price">₹${itemTotal.toLocaleString('en-IN')}</span>
               </div>
             </div>
@@ -388,8 +397,13 @@
           </div>
 
           <div class="detail-block">
-            <div class="db-title">Items to Deliver</div>
-            ${itemsHtml}
+            <div class="accordion-header" onclick="window.toggleItems('${order.id}')">
+              <div class="db-title" style="margin-bottom: 0;">Items to Deliver (${totalItemsCount})</div>
+              <svg id="chevron-${order.id}" class="chevron" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <div id="items-body-${order.id}" class="accordion-body">
+              ${itemsHtml}
+            </div>
           </div>
 
           <div class="detail-block">
@@ -406,7 +420,7 @@
       `;
     }
 
-    // 4. Update Engine & Real-Time Sync
+    // 5. Update Engine & Real-Time Sync
     window.updateOrderStatus = async function(btn, orderId, newStatus) {
       if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
       
@@ -423,9 +437,6 @@
           [timeField]: now,
           updatedAt: now
         });
-        
-        // No manual UI updates needed. The onSnapshot listener will instantly re-sort and re-render the card!
-        
       } catch (error) {
         console.error("Status update failed:", error);
         alert("Failed to update status. Please check your connection.");
@@ -434,7 +445,7 @@
       }
     };
 
-    // 5. Timer Engine for 10-Second Wait
+    // 6. Timer Engine for 10-Second Wait
     function initTimers() {
       document.querySelectorAll('[id^="deliver-btn-"]').forEach(btn => {
         const orderId = btn.id.replace('deliver-btn-', '');
