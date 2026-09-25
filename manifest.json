@@ -3,8 +3,8 @@
   "short_name": "Aarvi Agent",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f1f3f6",
-  "theme_color": "#ffffff",
+  "background_color": "#121212",
+  "theme_color": "#121212",
   "description": "Delivery Partner Portal for Aarvi Stores",
   "icons": [
     {
