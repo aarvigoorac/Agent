@@ -39,8 +39,8 @@
     
     body, html { background-color: var(--bg-color); color: var(--text-main); height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; }
 
-    /* --- Top Header --- */
-    header { height: var(--header-height); background-color: var(--surface-color); display: none; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 50; flex-shrink: 0; border-bottom: 1px solid var(--border); transition: opacity 0.3s ease; }
+    /* --- Top Header - NOW VISIBLE BY DEFAULT FOR INSTANT LOAD --- */
+    header { height: var(--header-height); background-color: var(--surface-color); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 50; flex-shrink: 0; border-bottom: 1px solid var(--border); transition: opacity 0.3s ease; }
     .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
     .brand img { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
     .agent-badge { background: var(--text-main); color: var(--surface-color); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 50px; letter-spacing: 1px; text-transform: uppercase; margin-left: 4px; }
@@ -109,9 +109,9 @@
     </div>
   </header>
 
-  <!-- Iframe Content Shell -->
+  <!-- Iframe Content Shell - INSTANT LOAD home.html -->
   <div class="layout-wrapper" id="layout-wrapper">
-    <iframe src="about:blank" id="content-frame" name="content-frame" title="App Content"></iframe>
+    <iframe src="pages/home.html" id="content-frame" name="content-frame" title="App Content"></iframe>
   </div>
 
   <!-- Logout Confirmation Modal -->
@@ -163,25 +163,30 @@
       dpImg.style.opacity = '1';
     }
 
-    // Expose UI reveal to child frames
+    // Retained for backward compatibility if any iframe tries to call it
     window.revealAppShell = function() {
       appHeader.style.display = 'flex';
     };
 
-    // 2. Auth Protection & Smart Auto-Provisioning
+    // 2. Auth Protection & Smart Auto-Provisioning (Running implicitly in background)
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        // NOT LOGGED IN: Hide shell, route iframe to login
+        // NOT LOGGED IN: Instantly switch away from optimistic home to login
         appHeader.style.display = 'none';
         deniedOverlay.style.display = 'none';
         localStorage.removeItem('aarvi_agent_login');
         btnLogout.classList.remove('nav-locked');
-        contentFrame.src = "pages/login.html";
+        
+        // Prevent unnecessary re-routing if it's already loading the login
+        if (!contentFrame.src.includes('login.html')) {
+          contentFrame.src = "pages/login.html";
+        }
       } else {
-        // Optimistic Load
-        window.revealAppShell();
-        const currentSrc = contentFrame.src || "";
-        if (currentSrc.includes('login.html') || currentSrc.includes('index.html') || currentSrc === "about:blank") {
+        // LOGGED IN: Ensure app shell is visible (in case it was hidden previously)
+        appHeader.style.display = 'flex';
+        
+        // If coming from login page, push them to home page
+        if (contentFrame.src.includes('login.html')) {
           contentFrame.src = "pages/home.html";
         }
 
@@ -196,10 +201,10 @@
               tempImg.onload = () => { dpImg.src = tempImg.src; dpImg.style.opacity = '1'; localStorage.setItem('aarvi_agent_dp', tempImg.src); };
               tempImg.src = user.photoURL;
             }
-            return;
+            return; // Exit out of function as user is already authenticated and verified in cache
         }
 
-        // Verify or Provision Agent in DB
+        // Verify or Provision Agent in DB (Background Check)
         try {
           const userRef = doc(db, 'users', user.uid);
           const userSnap = await getDoc(userRef);
@@ -231,6 +236,7 @@
               tempImg.src = user.photoURL;
             }
           } else {
+            // Fails Agent check -> Revoke Optimistic UI Access
             localStorage.removeItem('aarvi_agent_login');
             deniedOverlay.style.display = 'flex';
             btnLogout.classList.add('nav-locked');
@@ -243,14 +249,17 @@
       }
     });
 
-    // Handle iframe internal loads to prevent recursive nesting
+    // Handle iframe internal loads to prevent recursive nesting/bouncing
     contentFrame.addEventListener('load', () => {
       try {
         const frameUrl = contentFrame.contentWindow.location.href;
+        // If a logged-in user somehow navigates to login/index manually inside the frame, bump them back to home
         if (auth.currentUser && localStorage.getItem('aarvi_agent_login') && (frameUrl.includes('login.html') || frameUrl.includes('index.html'))) {
            contentFrame.src = "pages/home.html";
         }
-      } catch (e) {}
+      } catch (e) {
+        // Cross-origin restrictions (ignore)
+      }
     });
 
     // 3. Switch Account Logic
